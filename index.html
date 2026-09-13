@@ -48,7 +48,15 @@ a:hover { color: rgb(20,126,82); }
   <div style="display: {{ d1 }}; animation: {{ a1 }};">
     <section data-screen-label="01 진입" style="position: relative; width: 100%; min-height: 100vh; display: flex; align-items: center; justify-content: center; box-sizing: border-box; overflow: hidden; background: rgb(150,198,130);">
       <div style="position: relative; flex: none; width: max(100%, 177.65vh); aspect-ratio: 2480 / 1396; background-image: url('assets/bg-landing.png'); background-size: 100% 100%; background-repeat: no-repeat;">
-      <video ref="{{ videoRef }}" src="assets/intro-bg.mp4" poster="assets/bg-landing.png" autoplay="autoplay" muted="muted" loop="loop" playsinline="playsinline" preload="auto" disablepictureinpicture="disablepictureinpicture" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: url('assets/bg-landing.png') center / cover no-repeat;"></video>
+      <video ref="{{ videoRef }}" src="assets/intro-bg.mp4" poster="assets/bg-landing.png" autoplay="autoplay" muted="muted" loop="loop" playsinline="playsinline" preload="auto" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: url('assets/bg-landing.png') center / cover no-repeat;"></video>
+      <button type="button" onClick="{{ toggleSound }}" aria-label="소리 켜기 / 끄기" style="position: absolute; left: 2.4%; top: 4.4%; width: 34px; height: 34px; border: none; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">
+        <sc-if value="{{ soundOff }}" hint-placeholder-val="{{ true }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgb(255,255,255)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9 L8 9 L13 5 L13 19 L8 15 L4 15 Z"></path><path d="M17 9 L22 15"></path><path d="M22 9 L17 15"></path></svg>
+        </sc-if>
+        <sc-if value="{{ soundOn }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgb(255,255,255)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9 L8 9 L13 5 L13 19 L8 15 L4 15 Z"></path><path d="M17 8.5 C19 10.5 19 13.5 17 15.5"></path><path d="M20 6 C23 9.5 23 14.5 20 18"></path></svg>
+        </sc-if>
+      </button>
       <div style="position: absolute; left: 50%; top: 82%; transform: translate(-50%, -50%); display: flex; flex-wrap: nowrap; gap: min(35px, 1.82vw); justify-content: center;">
         <button type="button" onClick="{{ goTeacher }}" style="width: auto; min-width: clamp(230px, 16.8vw, 322px); max-width: min(92vw, 460px); height: clamp(66px, 4.43vw, 85px); border: none; border-radius: 66px; background: rgb(255,255,255); display: flex; align-items: center; justify-content: center; padding: 0 min(34px, 1.77vw); cursor: pointer; font: inherit; transition: transform .15s ease;" style-hover="transform: translateY(-2px);">
           <span style="font-family: Pretendard, sans-serif; font-weight: 500; font-size: {{ fsRole }}; color: rgb(20,132,85); white-space: nowrap;">{{ tTeacher }}</span>
@@ -191,13 +199,10 @@ class Component extends DCLogic {
       });
     };
     tryPlay();
-    requestAnimationFrame(tryPlay);
     const v0 = this.videoRef.current || document.querySelector("video");
-    if (v0) { try { v0.muted = true; v0.play().catch(() => {}); } catch (e) {} }
     if (v0) {
-      ["loadedmetadata", "loadeddata", "canplay", "canplaythrough", "pause", "ended", "stalled"].forEach((ev) =>
+      ["loadedmetadata", "loadeddata", "canplay", "canplaythrough"].forEach((ev) =>
         v0.addEventListener(ev, tryPlay));
-      v0.addEventListener("ended", () => { try { v0.currentTime = 0; } catch (e) {} v0.play().catch(() => {}); });
     }
     [60, 150, 400, 900, 1500, 2500].forEach((t) => setTimeout(tryPlay, t));
     document.addEventListener("visibilitychange", tryPlay);
@@ -241,28 +246,13 @@ class Component extends DCLogic {
 
     document.addEventListener("pointerdown", this._onClickPop, true);
     this._tryPlay = tryPlay;
-    this._checkSound = () => {
-      const v = this.videoRef.current || document.querySelector("video");
-      const blocked = !!v && v.muted && !this._userMuted && this.state.screen === 1;
-      if (this.state.needSound !== blocked) this.setState({ needSound: blocked });
-    };
-    this._soundTimer = setInterval(() => {
-      if (this._userMuted || this.state.screen !== 1) return;
-      const v = this.videoRef.current || document.querySelector("video");
-      if (v && v.muted) {
-        v.muted = false;
-        v.volume = 1;
-        v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
-      }
-      else if (v && !v.muted) { clearInterval(this._soundTimer); this.setState({ muted: false }); }
-    }, 300);
     this._autoUnmute = () => {
       if (this._userMuted || this.state.screen !== 1) return;
       const v = this.videoRef.current || document.querySelector("video");
       if (!v || !v.muted) return;
       v.muted = false;
       v.volume = 1;
-      v.play().then(() => { this._unmutedOnce = true; this.setState({ muted: false, needSound: false }); }).catch(() => { v.muted = true; v.play().catch(() => {}); });
+      v.play().then(() => { this._unmutedOnce = true; this.setState({ muted: false }); }).catch(() => { v.muted = true; });
     };
     ["pointerdown", "click", "keydown", "wheel", "touchstart", "pointermove", "mouseover", "scroll"].forEach((ev) => {
       window.addEventListener(ev, this._autoUnmute, { capture: true, passive: true });
@@ -278,12 +268,11 @@ class Component extends DCLogic {
 
   }
   componentWillUnmount() {
-    clearInterval(this._soundTimer);
     document.removeEventListener("pointerdown", this._onClickPop, true); clearTimeout(this._swapT); cancelAnimationFrame(this._raf); }
   go(n) {
     const v = this.videoRef.current || document.querySelector("video");
     if (v) {
-      if (n === 1) { v.play().catch(() => {}); }
+      if (n === 1) { try { v.currentTime = 0; } catch (e) {} v.play().catch(() => {}); }
       else {
         v.pause();
         v.muted = true;
@@ -470,17 +459,6 @@ typeNodes(text, tag) {
       t4n: this.typeNodes(teacher ? T.s4t : T.s4s, "t4-" + this.state.lang + this.state.role + this.state.navCount),
       veilRef: this.veilRef,
       globeColor: s === 1 ? "rgb(255,255,255)" : "rgb(20,132,85)",
-      needSound: !!this.state.needSound && s === 1,
-      forceSound: () => {
-        const v = this.videoRef.current || document.querySelector("video");
-        if (!v) return;
-        this._userMuted = false;
-        this._unmutedOnce = true;
-        v.muted = false;
-        v.volume = 1;
-        v.play().catch(() => {});
-        this.setState({ muted: false, needSound: false });
-      },
       soundOff: this.state.muted,
       soundOn: !this.state.muted,
       toggleSound: () => {
