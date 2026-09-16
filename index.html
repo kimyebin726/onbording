@@ -514,7 +514,7 @@ typeNodes(text, tag) {
       pickHard: () => this.setState({ mood: 0 }),
       pickBlue: () => this.setState({ mood: 1 }),
       pickOk: () => this.setState({ mood: 2 }),
-      next: () => this.go(s >= 5 ? 1 : s + 1),
+      next: () => { if (s >= 5) { window.location.href = "file:///Users/3rinnovation/Downloads/viperfish%202/index.html"; } else { this.go(s + 1); } },
     };
   }
 }
